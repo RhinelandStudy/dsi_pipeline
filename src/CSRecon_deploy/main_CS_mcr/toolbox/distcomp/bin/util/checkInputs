@@ -1,0 +1,38 @@
+#!/bin/sh
+
+# Copyright 2016 The MathWorks, Inc.
+
+#=======================================================================
+#
+# This file provides functionality for validating user defined inputs.
+#
+#=======================================================================
+
+# Set of invalid characters for service name
+invalid_characters=*[\\/:\;]*
+
+#=======================================================================
+# Check a job manager name for invalid characters.
+# Usage: validateJobManagerName serviceName
+# checks serviceName for invalid characters.
+#=======================================================================
+validateJobManagerName() {
+    case "$1" in
+      $invalid_characters) printf "Error: The job manager name \"%s\" contains invalid characters\n" "$1"
+        exit 1
+      ;;
+    esac
+}
+
+#=======================================================================
+# Check a worker name for invalid characters.
+# Usage: validateWorkerName serviceName
+# checks serviceName for invalid characters.
+#=======================================================================
+validateWorkerName() {
+  case "$1" in
+      $invalid_characters) printf "Error: The worker name \"%s\" contains invalid characters\n" "$1"
+          exit 1
+      ;;
+  esac
+}

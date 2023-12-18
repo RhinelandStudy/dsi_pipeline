@@ -1,0 +1,10 @@
+#!/bin/bash
+
+source /opt/miniconda/bin/activate mdt
+args=`echo $@|sed 's/^/"/;s/ /" /2'`
+echo "Rec: args: $@"
+echo "Starting mdt-model-fit $args"
+
+eval /opt/miniconda/envs/mdt/bin/mdt-model-fit $args
+source /opt/miniconda/bin/deactivate mdt
+

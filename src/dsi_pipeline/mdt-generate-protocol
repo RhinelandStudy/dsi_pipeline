@@ -1,0 +1,5 @@
+#!/bin/bash
+
+source /opt/miniconda/bin/activate mdt
+/opt/miniconda/envs/mdt/bin/mdt-generate-protocol $@
+source /opt/miniconda/bin/deactivate mdt

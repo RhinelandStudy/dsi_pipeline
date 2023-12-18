@@ -1,0 +1,263 @@
+function [] = main_CS(data_folder,data_id,mask_id,bval,bvec,mask_csf_file, seqParamsFile,gradDirs_half, gradDirs_jones, poolSize)
+%main_CS runs CS reconstruction from randomly undersampled q-space data
+%
+%USAGE: main_CS(data_folder,data_id,mask_id,b_id,seqParamsFile,mask_csf_file)
+%   data_folder:	folder with undersampled DSI measurements
+%   data_id:        filename of undersampled DSI measurements
+%   mask_id:        filename of brain mask or ROI
+%   b_id:           filename of b-files
+%   seqParamsFile:  file containing sequence diffusion parameters
+%   mask_csf_file:  filename CSF mask
+%
+%   (c) Alexandra Tobisch, 2013-2018
+
+if isempty(strfind(path,pwd))
+    addpath(genpath(pwd));
+end 
+
+%% start parpool
+poolNum=str2num(poolSize);
+
+if poolNum
+    tempdir=fullfile(data_folder, strip(tempname(),'left','/')); 
+    mkdir(tempdir);
+    myCluster = parcluster('local');
+    %delete(myCluster.Jobs);
+    myCluster.NumWorkers=poolNum;
+    myCluster.JobStorageLocation=tempdir;
+    parpool(myCluster,poolNum);
+    myCluster
+    disp('parpool generated.');
+    warning('off','all');
+else
+    ps = parallel.Settings;
+    ps.Pool.AutoCreate = false;
+end
+
+%% start CS
+
+
+%% parameters and input data
+close all
+rng(1);
+
+% Cartesian grid size
+matSize = 11;
+halfMatSize = floor(matSize/2);
+
+%normalised directions in bvec file
+%bvect_sparse = load([data_folder b_id '.bval'])';
+bvect_sparse = load(bval);
+bvect_sparse = transpose(bvect_sparse);
+seqParams = load(seqParamsFile);
+gradDirs_sparse = load(bvec);
+gradDirs_sparse = transpose(gradDirs_sparse);
+
+%remove multiple b0 weightings
+id_b0=find(bvect_sparse<50);
+b0=sum(bvect_sparse<50);
+b_id= '_RS_DSI';
+
+%cartesian gradient directions
+%file_gradDirs_half ='dirs_raw257_mix.txt';
+file_gradDirs_half = gradDirs_half;
+% get full set of directions for cartesian data
+[  ~, ~, gradDirs_cartesian ] = getQspace( file_gradDirs_half );
+
+%normalised gradient directions
+ns = sqrt(sum(gradDirs_cartesian.^2,2));
+ns(ns==0) = eps;
+gradDirs_norm = gradDirs_cartesian./repmat(ns, [1 3]);
+%gradDirs_cartesian_sparse = load('CS_dirs_jones_N112_dsi.csv');
+gradDirs_cartesian_sparse = load(gradDirs_jones);
+
+gradDirs_cartesian_sparse=[zeros(1,3); gradDirs_cartesian_sparse; -gradDirs_cartesian_sparse];
+idx_sparse = ismember(gradDirs_cartesian,gradDirs_cartesian_sparse,'rows');
+
+%sequence parameters
+paramsSeq.Del = seqParams(2);
+paramsSeq.del = seqParams(3);
+paramsSeq.diffT = (paramsSeq.Del-(paramsSeq.del/3.0));
+paramsSeq.const = (paramsSeq.Del-(paramsSeq.del/3.0))*4*pi^2;
+paramsSeq.gyro = 42.6 *10^6;
+paramsSeq.bmax = max(bvect_sparse)*10^6;
+paramsSeq.G_max = (paramsSeq.bmax/(paramsSeq.gyro^2 * paramsSeq.del^2 * paramsSeq.const)).^0.5;
+paramsSeq.q_max = paramsSeq.G_max*paramsSeq.del*paramsSeq.gyro *10^(-3); % *10^(-3) to go from 1/m to 1/mm
+paramsSeq.qmin = paramsSeq.q_max/halfMatSize;
+paramsSeq.rmin = 1/(2*paramsSeq.q_max); %in mm
+paramsSeq.rmax = halfMatSize/(2*paramsSeq.q_max);
+paramsSeq.q = ns.*paramsSeq.q_max;
+paramsSeq.q_vect = repmat(paramsSeq.q,[1 3]).*gradDirs_norm;
+paramsSeq.b_vect = paramsSeq.q.^2 .* paramsSeq.const;
+
+%save CS Recon bval and bvecs on full cartesian grid (fsl format) 
+bvals_b0s = fix(round([bvect_sparse(id_b0); bvect_sparse(1); paramsSeq.b_vect(2:end)]));
+bvecs_b0s = [gradDirs_sparse(id_b0,:); gradDirs_sparse(1,:); gradDirs_cartesian(2:end,:)];
+
+Recon515b0s_bval=fullfile(data_folder, [b_id, '_Recon515b0s.bval']);
+Recon515b0s_bvec=fullfile(data_folder, [b_id, '_Recon515b0s.bvec']);
+
+dlmwrite(Recon515b0s_bval, bvals_b0s','delimiter',' ');
+dlmwrite(Recon515b0s_bvec, bvecs_b0s','delimiter',' ');
+
+bvals = fix(round([bvect_sparse(1); paramsSeq.b_vect(2:end)]));
+bvecs = [gradDirs_sparse(1,:); gradDirs_cartesian(2:end,:)];
+
+Recon515_bval=fullfile(data_folder, [b_id, '_Recon515.bval']);
+Recon515_bvec=fullfile(data_folder, [b_id, '_Recon515.bvec']);
+
+dlmwrite(Recon515_bval, bvals','delimiter',' ');
+dlmwrite(Recon515_bvec, bvecs','delimiter',' ');
+
+ns_dirs_b0s = sqrt(sum(bvecs_b0s.^2,2));
+ns_dirs_b0s(ns_dirs_b0s==0) = eps;
+
+bvecs_b0s_norm = bvecs_b0s./repmat(ns_dirs_b0s, [1 3]);
+Recon515b0s_norm_bvec=fullfile(data_folder, [b_id, '_Recon515b0s_norm.bvec']);
+dlmwrite(Recon515b0s_norm_bvec, bvecs_b0s_norm','delimiter',' ');
+
+ns_dirs = sqrt(sum(bvecs.^2,2));
+ns_dirs(ns_dirs==0) = eps;
+bvecs_norm = bvecs./repmat(ns_dirs, [1 3]);
+Recon515_norm_bvec=fullfile(data_folder, [b_id, '_Recon515_norm.bvec']);
+dlmwrite(Recon515_norm_bvec, bvecs_norm','delimiter',' ');
+
+%load sparse dwi data
+data_sparse=readNii(data_id);
+
+[~,data_id_name,~] = fileparts(data_id);
+
+
+saveAsFile = fullfile(data_folder, data_id_name);
+disp(saveAsFile)
+
+%sort b0 scans
+if id_b0(end)~=length(id_b0)
+    data_sparse_b0 = data_sparse(:,:,:,id_b0);
+    %reorder, that b0 volumes at beginning
+    data_sparse_dwi = data_sparse;
+    data_sparse_dwi(:,:,:,id_b0)=[];
+    data_sparse_b0(:,:,:,length(id_b0)+1:length(id_b0)+size(data_sparse_dwi,4))=data_sparse_dwi;
+    data_sparse=data_sparse_b0;
+    clear data_sparse_b0 data_sparse_dwi
+end
+
+%mask dwi data
+data_sparse_mask=readNii(mask_id);
+%mask csf data
+mask_csf=readNii(mask_csf_file)>0.9;
+mask_csf=mask_csf.*data_sparse_mask;
+
+%apply mask to data matrix
+id_vox = find(mat2vect(data_sparse_mask));
+numVox_mask = sum(data_sparse_mask(:)>0);
+data_sparse_masked=zeros(size(data_sparse));
+data_sparse_masked_vect=zeros(numVox_mask,size(data_sparse,4));
+for i=1:size(data_sparse,4)
+    data_sparse_masked(:,:,:,i)=data_sparse(:,:,:,i).*data_sparse_mask;
+    comp=mat2vect(squeeze(data_sparse_masked(:,:,:,i)));
+    data_sparse_masked_vect(:,i)=comp(id_vox);
+    clear comp
+end
+
+%determine CSF voxels
+id_csf_vect = find(mat2vect(mask_csf));
+mask_csf_vect=zeros(size(id_vox));
+count=1;
+for i=1:length(id_vox)
+    if count<=length(id_csf_vect)
+        if id_vox(i)==id_csf_vect(count)
+            mask_csf_vect(i)=1;
+            count=count+1;
+        end
+    end
+end
+
+% preallocate final result variables
+dwi_num = size(gradDirs_norm,1);
+E_estim_ista=zeros(numVox_mask,dwi_num);
+E_estim_ista_csf=zeros(numVox_mask,dwi_num);
+
+%determine undersampling mask
+origin = ceil(matSize/2);
+scale = floor(matSize/2);
+gradDirs_cartesian_sparse_idx = round((gradDirs_cartesian_sparse.*scale) + origin);
+mask_sparse=zeros([matSize,matSize,matSize]);
+for i=1:size(gradDirs_cartesian_sparse_idx,1)
+    mask_sparse(gradDirs_cartesian_sparse_idx(i,2), gradDirs_cartesian_sparse_idx(i,1), gradDirs_cartesian_sparse_idx(i,3))=1;
+end
+%save mask for 4D dMRI data
+reco_id_vect=getSignalVectFromSamplingMask( gradDirs_cartesian,mask_sparse,mask_sparse);      
+recon_idx=fullfile(data_folder, [b_id, '_recon_idx.txt']);
+dlmwrite(recon_idx,reco_id_vect','delimiter',' ');
+
+%fix regularisation parameters for CS recon
+regParam_ista=5e-6;
+regParam_ista_csf=5e-7;
+
+%% CS Recon
+%parallelize here: same processing per voxel
+disp(['starting processing of ', num2str(numVox_mask), ' voxels']);
+
+parfor vox=1:numVox_mask
+
+    signal_sparse=data_sparse_masked_vect(vox,:)';
+    %do not run CS recon if all signal components are zero
+    if sum(signal_sparse)==0
+        continue
+    end
+    mmm=mod(vox,25000);
+    if mmm==0
+      disp(datetime('now'));
+      disp(['number of voxels processed: ', num2str(vox)]);
+    end
+    %FFT operator to obtain q-space signal from propagator/pdf 
+    maskFT = ones(matSize,matSize,matSize);
+    FT = DFT(maskFT); 
+    
+    % read and normalise signal
+    signal_sparse_norm = normDSISig(signal_sparse,b0);
+ 
+    %structure q-space data
+    signal_sparse_norm_grid=zeros(size(gradDirs_norm,1),1);
+    signal_sparse_norm_grid(idx_sparse)=signal_sparse_norm;
+    [~, samples_all,data_q] = getPdfFromQspace(signal_sparse_norm_grid,file_gradDirs_half,matSize,FT);   
+
+    %CS recon using canonical basis as sparse transform
+    pdf_ista =runCS_Ista([11 11 11],mask_sparse,data_q,regParam_ista);
+
+    %FFT to get reconstructed signal from reconstructed propagator
+    signal_reco_DSI_ista = real(FT * pdf_ista);
+    %replace negative values by absolute values (usually only small negative signals)
+    signal_reco_DSI_ista=abs(signal_reco_DSI_ista);
+    %save signal vectors
+    [ signal_reco_DSI_ista_vect ] = getSignalVectFromSamplingMask(gradDirs_cartesian,signal_reco_DSI_ista,samples_all);      
+    E_estim_ista(vox,:)=signal_reco_DSI_ista_vect;
+    
+    %adapt regularization parameter for CSF voxels for improved CS recon
+    if mask_csf_vect(vox)
+        %CSrecon for csf voxels
+        pdf_ista_csf=runCS_Ista([11 11 11],mask_sparse,data_q,regParam_ista_csf);
+        %FFT to get reconstructed signal from reconstructed propagator
+        signal_reco_DSI_ista_csf = real(FT * pdf_ista_csf);
+        %replace negative values by absolute values (usually only small negative signals)
+        signal_reco_DSI_ista_csf=abs(signal_reco_DSI_ista_csf);
+        %save signal vectors
+        [ signal_reco_DSI_ista_vect_csf ] = getSignalVectFromSamplingMask(gradDirs_cartesian,signal_reco_DSI_ista_csf,samples_all);      
+        E_estim_ista_csf(vox,:)=signal_reco_DSI_ista_vect_csf;    
+    else
+        E_estim_ista_csf(vox,:)=signal_reco_DSI_ista_vect;
+    end
+end %parallel processing
+
+%% save CS Recon results
+%abs for positiv data
+meanS0 = mean(abs(data_sparse_masked_vect(:,1:b0)),2); 
+size_ref = size(data_sparse);
+size_ref(4)=dwi_num;
+vol_ref = zeros(size_ref);
+saveDWI(id_b0,vol_ref,id_vox,E_estim_ista, data_id, [saveAsFile '_CSRecon.nii'],meanS0);
+saveDWI(id_b0,vol_ref,id_vox,E_estim_ista_csf, data_id, [saveAsFile '_CSRecon_csf.nii'],meanS0);
+
+close all;
+end
