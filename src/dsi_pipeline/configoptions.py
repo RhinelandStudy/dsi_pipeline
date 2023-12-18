@@ -26,15 +26,3 @@ ECHO_SPACING_MSEC = 0.680
 ECHO_TRAIN_LENGTH = 98
 PA_NUM = 4
 
-
-atlasMNI_T1       =abspath(join(SCRIPT_PATH, 'FSL_labels/MNI152_T1_1mm.nii.gz'))
-atlasMNI_FA       =abspath(join(SCRIPT_PATH, 'FSL_labels/JHU-ICBM-FA-1mm.nii.gz'))
-labelsROIsMNI     =abspath(join(SCRIPT_PATH, 'FSL_labels/JHU-ICBM-labels-1mm.nii.gz'))
-labelsROIsMNI_RL  =abspath(join(SCRIPT_PATH, 'FSL_labels/JHU-ICBM-labels-1mm-RLcombined.nii.gz'))
-labelsTractsMNI   =abspath(join(SCRIPT_PATH, 'FSL_labels/JHU-ICBM-tracts-maxprob-thr25-1mm.nii.gz'))
-skeletMNI         =abspath(join(SCRIPT_PATH, 'FSL_labels/JHU-ICBM-FA-skeleton-1mm.nii.gz'))
-skeletMNI_PSMD    =abspath(join(SCRIPT_PATH, 'FSL_labels/PSMDS_skeleton_mask.nii.gz'))
-labelsROIsHistMNI =abspath(join(SCRIPT_PATH, 'FSL_labels/Juelich-maxprob-thr25-1mm.nii.gz'))
-configParams_s1   =abspath(join(SCRIPT_PATH, 'FSL_labels/optPar/oxford_s1.cnf'))
-configParams_s2   =abspath(join(SCRIPT_PATH, 'FSL_labels/optPar/oxford_s2.cnf'))
-configParams_s3   =abspath(join(SCRIPT_PATH, 'FSL_labels/optPar/oxford_s3.cnf'))
