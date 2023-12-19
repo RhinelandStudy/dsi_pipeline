@@ -4,6 +4,7 @@ This repository contains a Nipype wrapper for the diffusion MRI processing pipel
 If you use this wrapper please cite:
 Tobisch A, Stirnberg R, Harms RL, Schultz T, Roebroeck A, Breteler MMB and Stöcker T (2018) Compressed Sensing Diffusion Spectrum Imaging for Accelerated Diffusion Microstructure MRI in Long-Term Population Imaging. Front. Neurosci. 12:650. https://doi.org/10.3389/fnins.2018.00650
 
+```
 @article{tobisch2018,
   title={Compressed Sensing Diffusion Spectrum Imaging for Accelerated Diffusion Microstructure MRI in Long-Term Population Imaging},      
   author={Tobisch, Alexandra and Stirnberg, Rüdiger and Harms, Robbert L. and Schultz, Thomas and Roebroeck, Alard and Breteler, Monique M. B. and Stöcker, Tony},   
@@ -12,7 +13,7 @@ Tobisch A, Stirnberg R, Harms RL, Schultz T, Roebroeck A, Breteler MMB and Stöc
 	year={2018},
   DOI={10.3389/fnins.2018.00650}
 }
-
+```
 ## Build docker image
 
 ```bash
