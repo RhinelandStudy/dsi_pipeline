@@ -87,8 +87,7 @@ MODELING:
 
 singularity run --nv -B /path/to/work:/work_mod \
                      -B /path/to/output:/output \
-                     "export OPENBLAS_NUM_THREADS=1;export GOTO_NUM_THREADS=1;export OMP_NUM_THREADS=1;\
-                     ulimit -s unlimited;export PYTHONWARNINGS="ignore";\
+            dsi_pipeline.sif "export OPENBLAS_NUM_THREADS=1;export GOTO_NUM_THREADS=1;export OMP_NUM_THREADS=1;ulimit -s unlimited;export PYTHONWARNINGS="ignore";\
                      run_dsi_modeling  \
                         -w /work_mod \
                         -o /output \
